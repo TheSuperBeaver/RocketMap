@@ -52,7 +52,7 @@ def captcha_overseer_thread(args, account_queue, captcha_queue, key_scheduler):
             tokens = Token.get_valid(tokens_needed)
             tokens_available = len(tokens)
             solvers = min(tokens_needed, tokens_available)
-            log.info('Accounts on hold with captcha: %d - tokens available: %d',
+            log.info("Accounts on hold with captcha: %d - tokens available: %d",
                      tokens_needed, tokens_available)
             for i in range(0, solvers):
                 captcha = captcha_queue.get()
@@ -99,7 +99,7 @@ def captcha_solving_thread(args, account_queue, captcha_queue, status):
     captcha_token = status['token']
     hash_key = status['hash_key']
 
-    status['message'] = 'Waking up account {} to verify captcha token.'.format(
+    status['message'] = "Waking up account {} to verify captcha token.".format(
                          account['username'])
     log.info(status['message'])
 
@@ -109,7 +109,7 @@ def captcha_solving_thread(args, account_queue, captcha_queue, status):
         api = PGoApi()
 
     if hash_key:
-        log.debug('Using key {} for solving this captcha.'.format(hash_key))
+        log.debug("Using key {} for solving this captcha.".format(hash_key))
         api.activate_hash_server(hash_key)
 
     proxy_url = False
@@ -124,19 +124,82 @@ def captcha_solving_thread(args, account_queue, captcha_queue, status):
     # Jitter location up to 100 meters
     location = jitter_location(location, 100)
     api.set_position(*location)
-    status['message'] = 'Logging in...'
+    status['message'] = "Logging in..."
     check_login(args, account, api, location, proxy_url)
 
     response = api.verify_challenge(token=captcha_token)
 
     if 'success' in response['responses']['VERIFY_CHALLENGE']:
-        status['message'] = "Account {} successfully uncaptcha'd, returning to active duty.".format(account['username'])
+        status['message'] = (
+            "Account {} successfully uncaptcha'd, returning to " +
+            "active duty.").format(account['username'])
         log.info(status['message'])
         account_queue.put(account)
     else:
-        status['message'] = 'Account {} failed verifyChallenge, putting back in captcha queue.'.format(account['username'])
+        status['message'] = (
+            "Account {} failed verifyChallenge, putting back " +
+            "in captcha queue.").format(account['username'])
         log.warning(status['message'])
-        captcha_queue.put({'account': account, 'last_step': location, 'captcha_url': captcha_url})
+        captcha_queue.put({'account': account,
+                           'last_step': location,
+                           'captcha_url': captcha_url})
+
+
+# Return captcha_url if captcha is encountered
+def check_captcha(response_dict):
+    try:
+        captcha_url = response_dict['responses'][
+            'CHECK_CHALLENGE']['challenge_url']
+        if len(captcha_url) > 1:
+            return captcha_url
+    except KeyError, e:
+        log.error("Unable to check captcha: {}".format(e))
+
+    return None
+
+
+# Return True if captcha was succesfully solved
+def automatic_captcha_solve(args, status, api, captcha_url, account,
+                            account_failures, wh_queue):
+    status['message'] = (
+        "Account {} is encountering a captcha, starting 2captcha " +
+        "sequence.").format(account['username'])
+    log.warning(status['message'])
+
+    captcha_token = token_request(args, status, captcha_url)
+    if 'ERROR' in captcha_token:
+        log.warning("Unable to resolve captcha, please check your " +
+                    "2captcha API key and/or wallet balance.")
+        account_failures.append({
+            'account': account,
+            'last_fail_time': now(),
+            'reason': 'captcha failed to verify'})
+
+        return False
+    else:
+        status['message'] = (
+            "Retrieved captcha token, attempting to verify challenge" +
+            " for {}.").format(account['username'])
+        log.info(status['message'])
+
+        response = api.verify_challenge(token=captcha_token)
+        if 'success' in response['responses']['VERIFY_CHALLENGE']:
+            status['message'] = "Account {} successfully uncaptcha'd.".format(
+                account['username'])
+            log.info(status['message'])
+
+            return True
+        else:
+            status['message'] = (
+                "Account {} failed verifyChallenge, putting away " +
+                "account for now.").format(account['username'])
+            log.info(status['message'])
+            account_failures.append({
+                'account': account,
+                'last_fail_time': now(),
+                'reason': 'captcha failed to verify'})
+
+            return False
 
 
 def token_request(args, status, url):
@@ -153,7 +216,7 @@ def token_request(args, status, url):
     except IndexError:
         return 'ERROR'
     status['message'] = (
-        'Retrieved captcha ID: {}; now retrieving token.').format(captcha_id)
+        "Retrieved captcha ID: {}; now retrieving token.").format(captcha_id)
     log.info(status['message'])
     # Get the response, retry every 5 seconds if it's not ready.
     recaptcha_response = s.get(
