@@ -13,7 +13,8 @@ import math
 from peewee import SqliteDatabase, InsertQuery, \
     Check, CompositeKey, ForeignKeyField, \
     IntegerField, CharField, DoubleField, BooleanField, \
-    DateTimeField, fn, DeleteQuery, FloatField, SQL, TextField, JOIN
+    DateTimeField, fn, DeleteQuery, FloatField, SQL, TextField, JOIN, \
+    OperationalError
 from playhouse.flask_utils import FlaskDB
 from playhouse.pool import PooledMySQLDatabase
 from playhouse.shortcuts import RetryOperationalError
@@ -1587,10 +1588,10 @@ class Token(flaskDb.Model):
                     token_ids.append(t.id)
                     tokens.append(t.token)
                 if tokens:
-                    log.debug("Retrived Token IDs: {}".format(token_ids))
+                    log.debug('Retrived Token IDs: {}'.format(token_ids))
                     result = DeleteQuery(Token).where(
                                  Token.id << token_ids).execute()
-                    log.debug("Tokens deleted: {}".format(result))
+                    log.debug('Deleted {} tokens.'.format(result))
         except OperationalError as e:
             log.error('Failed captcha token transactional query: {}'.format(e))
 

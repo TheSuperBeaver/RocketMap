@@ -34,14 +34,15 @@ from sets import Set
 from pgoapi import PGoApi
 from pgoapi.utilities import f2i
 from pgoapi import utilities as util
-from pgoapi.exceptions import AuthException
 
 from .models import parse_map, GymDetails, parse_gyms, MainWorker, WorkerStatus
 from .fakePogoApi import FakePogoApi
 from .utils import now
 from .transform import get_new_coords, jitter_location
-from .account import check_login, get_tutorial_state, complete_tutorial
-from .captcha import captcha_overseer_thread, check_captcha, automatic_captcha_solve
+from .account import check_login, get_tutorial_state, complete_tutorial, \
+    TooManyLoginAttempts
+from .captcha import captcha_overseer_thread, check_captcha, \
+    automatic_captcha_solve
 from .proxy import get_new_proxy
 
 import schedulers
@@ -251,18 +252,14 @@ def status_printer(threadStatus, search_items_queue_array, db_updates_queue,
 #  account queue 2 hours after they failed.
 # This allows accounts that were soft banned to be retried after giving
 # them a chance to cool down.
-def account_recycler(args, status, accounts_queue, captcha_queue, account_failures):
+def account_recycler(args, accounts_queue, account_failures):
     while True:
         # Run once a minute.
         time.sleep(60)
-        failures = len(account_failures)
         log.info(
             'Account recycler running. Checking status of {} accounts.'.format(
-            failures))
+            len(account_failures)))
 
-        # Update Overseer statistics
-        status['accounts_captcha'] = captcha_queue.qsize()
-        status['accounts_failed'] = failures
 
         # Create a new copy of the failure list to search through, so we can
         # iterate through it without it changing.
@@ -345,7 +342,6 @@ def search_overseer_thread(args, new_location_queue, pause_bit, heartb,
         'message': 'Initializing',
         'type': 'Overseer',
         'starttime': now(),
-        'accounts_working': 0,
         'accounts_captcha': 0,
         'accounts_failed': 0,
         'active_accounts': 0,
@@ -368,10 +364,22 @@ def search_overseer_thread(args, new_location_queue, pause_bit, heartb,
         t.daemon = True
         t.start()
 
+    # Create the key scheduler.
+    if args.hash_key:
+        log.info('Enabling hashing key scheduler...')
+        key_scheduler = schedulers.KeyScheduler(args.hash_key).scheduler()
+
     # Create account recycler thread.
     log.info('Starting account recycler thread...')
     t = Thread(target=account_recycler, name='account-recycler',
-               args=(args, threadStatus['Overseer'], account_queue, captcha_queue, account_failures))
+               args=(args, account_queue, account_failures))
+    t.daemon = True
+    t.start()
+
+    # Create captcha overseer thread.
+    log.info('Starting captcha overseer thread...')
+    t = Thread(target=captcha_overseer_thread, name='captcha-overseer',
+               args=(args, account_queue, captcha_queue, key_scheduler))
     t.daemon = True
     t.start()
 
@@ -382,18 +390,6 @@ def search_overseer_thread(args, new_location_queue, pause_bit, heartb,
                    args=(threadStatus, args.status_name, db_updates_queue))
         t.daemon = True
         t.start()
-
-    # Create the key scheduler.
-    if args.hash_key:
-        log.info('Enabling hashing key scheduler...')
-        key_scheduler = schedulers.KeyScheduler(args.hash_key).scheduler()
-
-    # Create captcha overseer thread.
-    log.info('Starting captcha overseer thread...')
-    t = Thread(target=captcha_overseer_thread, name='captcha-overseer',
-               args=(args, account_queue, captcha_queue, key_scheduler))
-    t.daemon = True
-    t.start()
 
     # Create specified number of search_worker_thread.
     log.info('Starting search worker threads...')
@@ -511,6 +507,10 @@ def search_overseer_thread(args, new_location_queue, pause_bit, heartb,
             if stats_timer == args.stats_log_timer:
                 log.info(get_stats_message(threadStatus))
                 stats_timer = 0
+
+        # Update Overseer statistics
+        threadStatus['Overseer']['accounts_captcha'] = captcha_queue.qsize()
+        threadStatus['Overseer']['accounts_failed'] = len(account_failures)
 
         # Send webhook updates when scheduler status changes.
         if args.webhook_scheduler_updates:
@@ -927,12 +927,11 @@ def search_worker_thread(args, account_queue, captcha_queue, account_failures,
                                                             args.no_jitter)
                         elif args.captcha_solving:
                             status['message'] = ("Account {} is waiting for " +
-                                                "manual captcha token.").format(
+                                                "captcha token.").format(
                                                     account['username'])
                             log.info(status['message'])
-                            captcha_queue.put({'account': account,
-                                               'last_step': step_location,
-                                               'captcha_url': captcha_url})
+                            captcha_queue.put((status, account, step_location,
+                                               captcha_url))
                             account_queue.task_done()
                             time.sleep(5)
                             break
@@ -1174,7 +1173,3 @@ def stagger_thread(args):
 # The delta from last stat to current stat
 def stat_delta(current_status, last_status, stat_name):
     return current_status.get(stat_name, 0) - last_status.get(stat_name, 0)
-
-
-class TooManyLoginAttempts(Exception):
-    pass
