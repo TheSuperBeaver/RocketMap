@@ -2261,7 +2261,8 @@ def create_tables(db):
     verify_database_schema(db)
     db.create_tables([Pokemon, Pokestop, Gym, ScannedLocation, GymDetails,
                       GymMember, GymPokemon, Trainer, MainWorker, WorkerStatus,
-                      SpawnPoint, ScanSpawnPoint, SpawnpointDetectionData, Token],
+                      SpawnPoint, ScanSpawnPoint, SpawnpointDetectionData,
+                      Token],
                      safe=True)
     db.close()
 
@@ -2390,8 +2391,6 @@ def database_migrate(db, old_ver):
         db.drop_tables([ScanSpawnPoint])
 
     if old_ver < 12:
+
+        db.drop_tables([WorkerStatus])
         db.drop_tables([MainWorker])
-        migrate(
-            migrator.add_column('workerstatus', 'captcha',
-                                IntegerField(default=0))
-        )
