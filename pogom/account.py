@@ -1,17 +1,18 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import sys
-import os
 import logging
 import time
 import random
+
 from pgoapi.exceptions import AuthException
 
 log = logging.getLogger(__name__)
 
+
 class TooManyLoginAttempts(Exception):
     pass
+
 
 def check_login(args, account, api, position, proxy_url):
 

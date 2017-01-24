@@ -14,27 +14,19 @@
 '''
 
 import logging
-import math
-import os
-import sys
-import traceback
-import random
 import time
 import requests
-import copy
 
-from datetime import datetime, timedelta
-from threading import Thread, Lock
-from queue import Queue, Empty
-from sets import Set
+from threading import Thread
 
 from pgoapi import PGoApi
 from .fakePogoApi import FakePogoApi
 
 from .models import Token
 from .transform import jitter_location
-from .account import check_login, TooManyLoginAttempts
+from .account import check_login
 from .proxy import get_new_proxy
+from .utils import now
 
 
 log = logging.getLogger(__name__)
@@ -42,8 +34,6 @@ log = logging.getLogger(__name__)
 
 def captcha_overseer_thread(args, account_queue, captcha_queue, key_scheduler):
     solverId = 0
-    captchaStatus = {}
-
     while True:
         # Run once every 15 seconds.
         sleep_timer = 15
@@ -53,14 +43,14 @@ def captcha_overseer_thread(args, account_queue, captcha_queue, key_scheduler):
             tokens = Token.get_valid(tokens_needed)
             tokens_available = len(tokens)
             solvers = min(tokens_needed, tokens_available)
-            log.info('Accounts on hold with captcha: %d - tokens available: %d',
+            log.info('Captcha overseer running. Captchas: %d - Tokens: %d',
                      tokens_needed, tokens_available)
             for i in range(0, solvers):
                 hash_key = None
                 if args.hash_key:
                     hash_key = key_scheduler.next()
 
-                t = Thread(target=captcha_solving_thread,
+                t = Thread(target=captcha_solver_thread,
                            name='captcha-solver-{}'.format(solverId),
                            args=(args, account_queue, captcha_queue, hash_key,
                                  tokens[i]))
@@ -79,7 +69,7 @@ def captcha_overseer_thread(args, account_queue, captcha_queue, key_scheduler):
         time.sleep(sleep_timer)
 
 
-def captcha_solving_thread(args, account_queue, captcha_queue, hash_key, token):
+def captcha_solver_thread(args, account_queue, captcha_queue, hash_key, token):
     status, account, location, captcha_url = (captcha_queue.get())
 
     status['message'] = 'Waking up account {} to verify captcha token.'.format(

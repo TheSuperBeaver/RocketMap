@@ -1039,6 +1039,10 @@ class MainWorker(BaseModel):
     accounts_captcha = IntegerField()
     accounts_failed = IntegerField()
 
+    @staticmethod
+    def get_total_captchas():
+        return MainWorker.select(fn.SUM(MainWorker.accounts_captcha)).scalar()
+
 
 class WorkerStatus(BaseModel):
     username = CharField(primary_key=True, max_length=50)

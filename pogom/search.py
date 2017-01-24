@@ -26,7 +26,7 @@ import random
 import time
 import copy
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from threading import Thread, Lock
 from queue import Queue, Empty
 from sets import Set
@@ -39,8 +39,7 @@ from .models import parse_map, GymDetails, parse_gyms, MainWorker, WorkerStatus
 from .fakePogoApi import FakePogoApi
 from .utils import now
 from .transform import get_new_coords, jitter_location
-from .account import check_login, get_tutorial_state, complete_tutorial, \
-    TooManyLoginAttempts
+from .account import check_login, get_tutorial_state, complete_tutorial
 from .captcha import captcha_overseer_thread, check_captcha, \
     automatic_captcha_solve
 from .proxy import get_new_proxy
@@ -256,10 +255,8 @@ def account_recycler(args, accounts_queue, account_failures):
     while True:
         # Run once a minute.
         time.sleep(60)
-        log.info(
-            'Account recycler running. Checking status of {} accounts.'.format(
-            len(account_failures)))
-
+        log.info('Account recycler running. Checking status of %d accounts.',
+                 len(account_failures))
 
         # Create a new copy of the failure list to search through, so we can
         # iterate through it without it changing.
@@ -918,8 +915,8 @@ def search_worker_thread(args, account_queue, captcha_queue, account_failures,
                         if args.captcha_solving and args.captcha_key:
 
                             if automatic_captcha_solve(args, status, api,
-                                                    captcha_url, account,
-                                                    account_failures, whq):
+                                                       captcha_url, account,
+                                                       account_failures, whq):
                                 # Make another request for the same location
                                 # since the previous one was captcha'd.
                                 scan_date = datetime.utcnow()
@@ -927,7 +924,7 @@ def search_worker_thread(args, account_queue, captcha_queue, account_failures,
                                                             args.no_jitter)
                         elif args.captcha_solving:
                             status['message'] = ("Account {} is waiting for " +
-                                                "captcha token.").format(
+                                                 "captcha token.").format(
                                                     account['username'])
                             log.info(status['message'])
                             captcha_queue.put((status, account, step_location,

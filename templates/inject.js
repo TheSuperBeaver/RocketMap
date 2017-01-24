@@ -20,7 +20,7 @@ var fnc = function(str){
             console.log(res);
             last_res = res;
             initCaptchaPage();
-            document.getElementById('messages').innerHTML = '<img src="{{domain}}/add_token?token='+res+'"/>'
+            document.getElementById('messages').innerHTML = '<img src="{{domain}}/add_token?token='+res+'"/>';
         }
     }, 1);
 };
