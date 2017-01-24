@@ -39,7 +39,7 @@ from .proxy import get_new_proxy
 log = logging.getLogger(__name__)
 
 
-def captcha_overseer_thread(args, account_queue, captcha_queue):
+def captcha_overseer_thread(args, account_queue, captcha_queue, key_scheduler):
     solverId = 0
     captchaStatus = {}
 
@@ -56,13 +56,19 @@ def captcha_overseer_thread(args, account_queue, captcha_queue):
                      tokens_needed, tokens_available)
             for i in range(0, solvers):
                 captcha = captcha_queue.get()
+
+                hash_key = None
+                if args.hash_key:
+                    hash_key = key_scheduler.next()
+
                 captchaStatus[solverId] = {
                     'type': 'Solver',
                     'message': 'Creating captcha solving thread...',
                     'account': captcha['account'],
                     'location': captcha['last_step'],
                     'captcha_url': captcha['captcha_url'],
-                    'token':  tokens[i]
+                    'token':  tokens[i],
+                    'hash_key': hash_key
                 }
 
                 t = Thread(target=captcha_solving_thread,
@@ -91,6 +97,7 @@ def captcha_solving_thread(args, account_queue, captcha_queue, status):
     location = status['location']
     captcha_url = status['captcha_url']
     captcha_token = status['token']
+    hash_key = status['hash_key']
 
     status['message'] = 'Waking up account {} to verify captcha token.'.format(
                          account['username'])
@@ -100,6 +107,10 @@ def captcha_solving_thread(args, account_queue, captcha_queue, status):
         api = FakePogoApi(args.mock)
     else:
         api = PGoApi()
+
+    if hash_key:
+        log.debug('Using key {} for solving this captcha.'.format(hash_key))
+        api.activate_hash_server(hash_key)
 
     proxy_url = False
     if args.proxy:

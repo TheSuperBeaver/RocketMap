@@ -375,13 +375,6 @@ def search_overseer_thread(args, new_location_queue, pause_bit, heartb,
     t.daemon = True
     t.start()
 
-    # Create captcha overseer thread.
-    log.info('Starting captcha overseer thread...')
-    t = Thread(target=captcha_overseer_thread, name='captcha-overseer',
-               args=(args, account_queue, captcha_queue))
-    t.daemon = True
-    t.start()
-
     if args.status_name is not None:
         log.info('Starting status database thread...')
         t = Thread(target=worker_status_db_thread,
@@ -394,6 +387,13 @@ def search_overseer_thread(args, new_location_queue, pause_bit, heartb,
     if args.hash_key:
         log.info('Enabling hashing key scheduler...')
         key_scheduler = schedulers.KeyScheduler(args.hash_key).scheduler()
+
+    # Create captcha overseer thread.
+    log.info('Starting captcha overseer thread...')
+    t = Thread(target=captcha_overseer_thread, name='captcha-overseer',
+               args=(args, account_queue, captcha_queue, key_scheduler))
+    t.daemon = True
+    t.start()
 
     # Create specified number of search_worker_thread.
     log.info('Starting search worker threads...')
