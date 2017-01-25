@@ -49,7 +49,8 @@ class Pogom(Flask):
         token = request.args.get('token')
         query = Token.insert(token=token, last_updated=datetime.utcnow())
         query.execute()
-        return self.send_static_file('1x1.gif')
+        return jsonify({'remaining_captchas': MainWorker.get_total_captchas()})
+        # return self.send_static_file('1x1.gif')
 
     def render_inject_js(self):
         args = get_args()
