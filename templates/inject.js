@@ -39,8 +39,10 @@ var fnc = function(str){
             initCaptchaPage();
             // document.getElementById('messages').innerHTML = '<img src="{{domain}}/add_token?token='+res+'"/>';
             $.getJSON('{{domain}}/add_token?token='+res, function(data){
-                remaining_captchas = data.remaining_captchas - 1;
-                $('#message').text('Captcha Token submitted.<br />Remaining captchas: ' + remaining_captchas);
+                accounts_working = data[0];
+                accounts_captcha = data[1];
+                accounts_failed = data[2];
+                $('#messages').html('Captcha token successfully submitted!<br />Working accounts: ' + accounts_working + '<br />Remaining captchas: ' + accounts_captcha + '<br />Failed accounts: ' + accounts_failed);
             });
 
             setTimeout(refreshCaptcha, 1500);

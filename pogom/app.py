@@ -4,7 +4,7 @@
 import calendar
 import logging
 
-from flask import Flask, abort, jsonify, render_template, request
+from flask import Flask, abort, jsonify, render_template, request, make_response
 from flask.json import JSONEncoder
 from flask_compress import Compress
 from datetime import datetime
@@ -45,19 +45,21 @@ class Pogom(Flask):
     def get_bookmarklet(self):
         return render_template('bookmarklet.html')
 
-    def add_token(self):
-        token = request.args.get('token')
-        query = Token.insert(token=token, last_updated=datetime.utcnow())
-        query.execute()
-        remaining_captchas = int(MainWorker.get_total_captchas())
-        return jsonify({'remaining_captchas': remaining_captchas})
-        # return self.send_static_file('1x1.gif')
-
     def render_inject_js(self):
         args = get_args()
         return render_template("inject.js",
-                               domain=args.manual_captcha_solving_domain
-                               )
+                               domain=args.manual_captcha_solving_domain)
+
+    def add_token(self):
+        stats = MainWorker.get_account_stats()
+        r = make_response(jsonify(stats))
+        r.headers.add('Access-Control-Allow-Origin', '*')
+
+        token = request.args.get('token')
+        query = Token.insert(token=token, last_updated=datetime.utcnow())
+        query.execute()
+        return r
+        # return self.send_static_file('1x1.gif')
 
     def set_search_control(self, control):
         self.search_control = control
