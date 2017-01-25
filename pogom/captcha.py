@@ -133,12 +133,28 @@ def check_captcha(response_dict):
 # Return True if captcha was succesfully solved
 def automatic_captcha_solve(args, status, api, captcha_url, account,
                             account_failures, wh_queue):
+    if not args.captcha_solving:
+        return False
+    elif not args.captcha_key:
+        return False
+
     status['message'] = (
         'Account {} is encountering a captcha, starting 2captcha ' +
         'sequence.').format(account['username'])
     log.warning(status['message'])
 
+    if args.webhooks:
+        wh_message = {'status_name': args.status_name,
+                      'status': 'encounter',
+                      'account': status['username'],
+                      'captcha': status['captcha'],
+                      'time': 0}
+        wh_queue.put(('captcha', wh_message))
+
+    time_before = now()
     captcha_token = token_request(args, status, captcha_url)
+    time_elapsed = now() - time_before
+
     if 'ERROR' in captcha_token:
         log.warning('Unable to resolve captcha, please check your ' +
                     '2captcha API key and/or wallet balance.')
@@ -146,6 +162,10 @@ def automatic_captcha_solve(args, status, api, captcha_url, account,
             'account': account,
             'last_fail_time': now(),
             'reason': 'captcha failed to verify'})
+        if args.webhooks:
+            wh_message['status'] = 'error'
+            wh_message['time'] = time_elapsed
+            wh_queue.put(('captcha', wh_message))
 
         return False
     else:
@@ -155,10 +175,15 @@ def automatic_captcha_solve(args, status, api, captcha_url, account,
         log.info(status['message'])
 
         response = api.verify_challenge(token=captcha_token)
+        time_elapsed = now() - time_before
         if 'success' in response['responses']['VERIFY_CHALLENGE']:
             status['message'] = "Account {} successfully uncaptcha'd.".format(
                 account['username'])
             log.info(status['message'])
+            if args.webhooks:
+                wh_message['status'] = 'success'
+                wh_message['time'] = time_elapsed
+                wh_queue.put(('captcha', wh_message))
 
             return True
         else:
@@ -170,6 +195,10 @@ def automatic_captcha_solve(args, status, api, captcha_url, account,
                 'account': account,
                 'last_fail_time': now(),
                 'reason': 'captcha failed to verify'})
+            if args.webhooks:
+                wh_message['status'] = 'failure'
+                wh_message['time'] = time_elapsed
+                wh_queue.put(('captcha', wh_message))
 
             return False
 

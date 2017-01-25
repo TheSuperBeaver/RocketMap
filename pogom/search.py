@@ -912,36 +912,38 @@ def search_worker_thread(args, account_queue, captcha_queue, account_failures,
                     captcha_url = check_captcha(response_dict)
                     if captcha_url:
                         status['captcha'] += 1
-                        if args.captcha_solving and args.captcha_key:
-
-                            if automatic_captcha_solve(args, status, api,
-                                                       captcha_url, account,
-                                                       account_failures, whq):
+                        if automatic_captcha_solve(args, status, api,
+                                                   captcha_url, account,
+                                                   account_failures, whq):
                                 # Make another request for the same location
                                 # since the previous one was captcha'd.
                                 scan_date = datetime.utcnow()
                                 response_dict = map_request(api, step_location,
                                                             args.no_jitter)
-                        elif args.captcha_solving:
-                            status['message'] = ("Account {} is waiting for " +
-                                                 "captcha token.").format(
-                                                    account['username'])
-                            log.info(status['message'])
-                            captcha_queue.put((status, account, step_location,
-                                               captcha_url))
-                            account_queue.task_done()
-                            time.sleep(5)
-                            break
                         else:
-                            status['message'] = ("Account {} has encountered" +
-                                                 " a captcha, putting away " +
-                                                 "account for now.").format(
-                                                     account['username'])
+                            status['message'] = ('Account {} has encountered' +
+                                                 'a captcha.').format(
+                                                    status['username'])
+                            if args.captcha_solving:
+                                status['message'] += " Waiting for token."
+                                captcha_queue.put((status, account,
+                                                   step_location, captcha_url))
+                            else:
+                                status['message'] += " Putting account away."
+                                account_failures.append({
+                                    'account': account,
+                                    'last_fail_time': now(),
+                                    'reason': 'captcha found'})
                             log.info(status['message'])
-                            account_failures.append({
-                                'account': account,
-                                'last_fail_time': now(),
-                                'reason': 'captcha found'})
+
+                            if args.webhooks:
+                                wh_message = {'status_name': args.status_name,
+                                              'status': 'encounter',
+                                              'account': status['username'],
+                                              'captcha': status['captcha'],
+                                              'time': 0}
+                                whq.put(('captcha', wh_message))
+
                             account_queue.task_done()
                             time.sleep(5)
                             break

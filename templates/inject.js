@@ -53,4 +53,4 @@ setInterval(fnc, 500);
 
 initCaptchaPage();
 
-setInterval(refreshCaptcha, 30000);
+//setInterval(refreshCaptcha, 30000);
