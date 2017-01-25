@@ -1050,7 +1050,10 @@ class MainWorker(BaseModel):
                                  fn.SUM(MainWorker.accounts_captcha),
                                  fn.SUM(MainWorker.accounts_failed))
                          .scalar(as_tuple=True))
-        return list(account_stats)
+        dict = {'working': account_stats[0],
+                'captcha': account_stats[1],
+                'failed': account_stats[2]}
+        return dict
 
 
 class WorkerStatus(BaseModel):

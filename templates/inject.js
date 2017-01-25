@@ -39,9 +39,10 @@ var fnc = function(str){
             initCaptchaPage();
             // document.getElementById('messages').innerHTML = '<img src="{{domain}}/add_token?token='+res+'"/>';
             $.getJSON('{{domain}}/add_token?token='+res, function(data){
-                accounts_working = data[0];
-                accounts_captcha = data[1];
-                accounts_failed = data[2];
+                accounts_working = data.working;
+                accounts_captcha = data.captcha - 1;
+                accounts_failed = data.failed;
+                if(accounts_captcha < 0) { accounts_captcha = 0; }
                 $('#messages').html('Captcha token successfully submitted!<br />Working accounts: ' + accounts_working + '<br />Remaining captchas: ' + accounts_captcha + '<br />Failed accounts: ' + accounts_failed);
             });
 

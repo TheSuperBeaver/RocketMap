@@ -4,7 +4,8 @@
 import calendar
 import logging
 
-from flask import Flask, abort, jsonify, render_template, request, make_response
+from flask import Flask, abort, jsonify, render_template, request,\
+    make_response
 from flask.json import JSONEncoder
 from flask_compress import Compress
 from datetime import datetime
@@ -52,7 +53,7 @@ class Pogom(Flask):
 
     def add_token(self):
         stats = MainWorker.get_account_stats()
-        r = make_response(jsonify(stats))
+        r = make_response(jsonify(**stats))
         r.headers.add('Access-Control-Allow-Origin', '*')
 
         token = request.args.get('token')
