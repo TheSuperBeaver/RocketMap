@@ -42,6 +42,7 @@ class Pogom(Flask):
         self.route("/bookmarklet", methods=['GET'])(self.get_bookmarklet)
         self.route("/inject.js", methods=['GET'])(self.render_inject_js)
         self.route("/add_token", methods=['GET'])(self.add_token)
+        self.route("/submit_token", methods=['POST'])(self.submit_token)
         self.route("/get_stats", methods=['GET'])(self.get_account_stats)
 
     def get_bookmarklet(self):
@@ -57,6 +58,17 @@ class Pogom(Flask):
         query = Token.insert(token=token, last_updated=datetime.utcnow())
         query.execute()
         return self.send_static_file('1x1.gif')
+
+    def submit_token(self):
+        response = 'error'
+        if request.form:
+            token = request.form.get('token')
+            query = Token.insert(token=token, last_updated=datetime.utcnow())
+            query.execute()
+            response = 'ok'
+        r = make_response(response)
+        r.headers.add('Access-Control-Allow-Origin', '*')
+        return r
 
     def get_account_stats(self):
         stats = MainWorker.get_account_stats()
