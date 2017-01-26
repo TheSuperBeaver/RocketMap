@@ -43,8 +43,8 @@ def captcha_overseer_thread(args, account_queue, captcha_queue, key_scheduler):
             tokens = Token.get_valid(tokens_needed)
             tokens_available = len(tokens)
             solvers = min(tokens_needed, tokens_available)
-            log.info('Captcha overseer running. Captchas: %d - Tokens: %d',
-                     tokens_needed, tokens_available)
+            log.debug('Captcha overseer running. Captchas: %d - Tokens: %d',
+                      tokens_needed, tokens_available)
             for i in range(0, solvers):
                 hash_key = None
                 if args.hash_key:
@@ -65,7 +65,6 @@ def captcha_overseer_thread(args, account_queue, captcha_queue, key_scheduler):
 
             # Adjust captcha-overseer sleep timer
             sleep_timer -= 1 * solvers
-        log.info('Waiting %d seconds before next token query.', sleep_timer)
         time.sleep(sleep_timer)
 
 
