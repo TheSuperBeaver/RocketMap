@@ -10,7 +10,6 @@ import logging
 import shutil
 import pprint
 import time
-import random
 from s2sphere import CellId, LatLng
 
 from . import config
