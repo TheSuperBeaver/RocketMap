@@ -40,8 +40,9 @@ class Pogom(Flask):
         self.route("/status", methods=['POST'])(self.post_status)
         self.route("/gym_data", methods=['GET'])(self.get_gymdata)
         self.route("/bookmarklet", methods=['GET'])(self.get_bookmarklet)
-        self.route("/add_token", methods=['GET'])(self.add_token)
         self.route("/inject.js", methods=['GET'])(self.render_inject_js)
+        self.route("/add_token", methods=['GET'])(self.add_token)
+        self.route("/get_stats", methods=['GET'])(self.get_account_stats)
 
     def get_bookmarklet(self):
         return render_template('bookmarklet.html')
@@ -52,15 +53,16 @@ class Pogom(Flask):
                                domain=args.manual_captcha_solving_domain)
 
     def add_token(self):
-        stats = MainWorker.get_account_stats()
-        r = make_response(jsonify(**stats))
-        r.headers.add('Access-Control-Allow-Origin', '*')
-
         token = request.args.get('token')
         query = Token.insert(token=token, last_updated=datetime.utcnow())
         query.execute()
+        return self.send_static_file('1x1.gif')
+
+    def get_account_stats(self):
+        stats = MainWorker.get_account_stats()
+        r = make_response(jsonify(**stats))
+        r.headers.add('Access-Control-Allow-Origin', '*')
         return r
-        # return self.send_static_file('1x1.gif')
 
     def set_search_control(self, control):
         self.search_control = control

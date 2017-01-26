@@ -14,6 +14,7 @@ function initCaptchaPage(){
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.0/jquery.min.js';
     script.type = 'text/javascript';
     document.getElementsByTagName('head')[0].appendChild(script);
+    setTimeout(refreshStats, 1000);
 }
 
 // only refresh the captcha itself
@@ -27,6 +28,16 @@ function refreshCaptcha() {
     recaptcha.parentNode.replaceChild(script, recaptcha);
 }
 
+function refreshStats() {
+    $.getJSON('{{domain}}/get_stats', function(data){
+        accounts_working = data.working;
+        accounts_captcha = data.captcha;
+        accounts_failed = data.failed;
+        if(accounts_captcha < 0) { accounts_captcha = 0; }
+        $('#messages').html('Working accounts: ' + accounts_working + '<br />Remaining captchas: ' + accounts_captcha + '<br />Failed accounts: ' + accounts_failed);
+    });
+}
+
 // recaptcha callback function
 var fnc = function(str){
     var elem = document.getElementById('g-recaptcha-response');
@@ -37,15 +48,7 @@ var fnc = function(str){
             console.log(res);
             last_res = res;
             initCaptchaPage();
-            // document.getElementById('messages').innerHTML = '<img src="{{domain}}/add_token?token='+res+'"/>';
-            $.getJSON('{{domain}}/add_token?token='+res, function(data){
-                accounts_working = data.working;
-                accounts_captcha = data.captcha - 1;
-                accounts_failed = data.failed;
-                if(accounts_captcha < 0) { accounts_captcha = 0; }
-                $('#messages').html('Captcha token successfully submitted!<br />Working accounts: ' + accounts_working + '<br />Remaining captchas: ' + accounts_captcha + '<br />Failed accounts: ' + accounts_failed);
-            });
-
+            document.getElementById('messages').innerHTML = '<img src="{{domain}}/add_token?token='+res+'"/>';
             setTimeout(refreshCaptcha, 1500);
         }
     }, 1);
@@ -53,7 +56,7 @@ var fnc = function(str){
 
 captchaResponse=fnc;
 setInterval(fnc, 500);
-
+setInterval(refreshStats, 5000);
 initCaptchaPage();
 
 //setInterval(refreshCaptcha, 30000);
