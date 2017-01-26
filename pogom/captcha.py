@@ -170,8 +170,8 @@ def automatic_captcha_solve(args, status, api, captcha_url, account,
         return False
     else:
         status['message'] = (
-            'Retrieved captcha token, attempting to verify challenge' +
-            ' for {}.').format(account['username'])
+            'Retrieved captcha token, attempting to verify challenge ' +
+            'for {}.').format(account['username'])
         log.info(status['message'])
 
         response = api.verify_challenge(token=captcha_token)

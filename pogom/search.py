@@ -96,9 +96,9 @@ def status_printer(threadStatus, search_items_queue_array, db_updates_queue,
                    logmode):
 
     if (logmode == 'logs'):
-        display_type = ["logs"]
+        display_type = ['logs']
     else:
-        display_type = ["workers"]
+        display_type = ['workers']
 
     current_page = [1]
     # Grab current log / level.
@@ -244,7 +244,7 @@ def status_printer(threadStatus, search_items_queue_array, db_updates_queue,
         # Clear the screen.
         os.system('cls' if os.name == 'nt' else 'clear')
         # Print status.
-        print "\n".join(status_text)
+        print '\n'.join(status_text)
 
 
 # The account recycler monitors failed accounts and places them back in the
@@ -446,7 +446,7 @@ def search_overseer_thread(args, new_location_queue, pause_bit, heartb,
         if (args.on_demand_timeout > 0 and
                 (now() - args.on_demand_timeout) > heartb[0]):
             pause_bit.set()
-            log.info("Searching paused due to inactivity...")
+            log.info('Searching paused due to inactivity...')
 
         # Wait here while scanning is paused.
         while pause_bit.is_set():
@@ -531,7 +531,7 @@ def wh_status_update(args, status, wh_queue, scheduler):
             tth_found = tth_found * 100.0 / float(active_sp)
 
         if (tth_found - status['scheduler_status']['tth_found']) > 0.01:
-            log.debug("Scheduler update is due, sending webhook message.")
+            log.debug('Scheduler update is due, sending webhook message.')
             wh_queue.put(('scheduler', {'name': scheduler_name,
                                         'instance': args.status_name,
                                         'tth_found': tth_found,
@@ -735,7 +735,7 @@ def search_worker_thread(args, account_queue, captcha_queue, account_failures,
                         status['proxy_display'] = status['proxy_url']
 
             if status['proxy_url']:
-                log.debug("Using proxy %s", status['proxy_url'])
+                log.debug('Using proxy %s', status['proxy_url'])
                 api.set_proxy({
                     'http': status['proxy_url'],
                     'https': status['proxy_url']})
@@ -924,14 +924,14 @@ def search_worker_thread(args, account_queue, captcha_queue, account_failures,
                                                             args.no_jitter)
                         else:
                             status['message'] = ('Account {} has encountered' +
-                                                 'a captcha.').format(
+                                                 ' a captcha.').format(
                                                     status['username'])
                             if args.captcha_solving:
-                                status['message'] += " Waiting for token."
+                                status['message'] += ' Waiting for token.'
                                 captcha_queue.put((status, account,
                                                    step_location, captcha_url))
                             else:
-                                status['message'] += " Putting account away."
+                                status['message'] += ' Putting account away.'
                                 account_failures.append({
                                     'account': account,
                                     'last_fail_time': now(),
