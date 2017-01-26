@@ -12,20 +12,18 @@ function initCaptchaPage(){
     document.getElementsByTagName('head')[0].appendChild(script);
 
     script = document.createElement('script');
-    //script.id = 'recaptcha';
     script.src = 'https://www.google.com/recaptcha/api.js';
     script.type = 'text/javascript';
-    //document.getElementsByTagName('head')[0].appendChild(script);
     document.getElementById('recaptcha').appendChild(script);
 }
 
-// only refresh the captcha itself
 function refreshCaptcha() {
-    $('form').html(captchaOnly);
     var script = document.createElement('script');
     script.src = 'https://www.google.com/recaptcha/api.js';
     script.type = 'text/javascript';
-    setTimeout(document.getElementById('recaptcha').appendChild(script), 500);
+
+    $('form').html(captchaOnly);
+    $('#recaptcha').delay(500).append(script);
     refreshStats();
     $('#status').delay(1000).fadeOut(400);
 }
@@ -38,7 +36,6 @@ function refreshStats() {
     });
 }
 
-// recaptcha callback function
 var fnc = function(str){
     var elem = document.getElementById('g-recaptcha-response');
     var res  = elem ? (elem.value || str) : str;
@@ -47,11 +44,9 @@ var fnc = function(str){
         if(res && last_res !== res){
             console.log(res);
             last_res = res;
-            data = {'token': res};
-            //initCaptchaPage();
-            $.post('{{domain}}/submit_token', data, function(data) {
+            $.post('{{domain}}/submit_token', {token: res}, function(data) {
                 if(data == "ok"){
-                    $('#status').text('Captcha token submitted!');
+                    $('#status').text('Captcha token submitted.');
                 } else {
                     $('#status').text('Failed to submit captcha token.');
                 }

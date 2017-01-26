@@ -41,7 +41,6 @@ class Pogom(Flask):
         self.route("/gym_data", methods=['GET'])(self.get_gymdata)
         self.route("/bookmarklet", methods=['GET'])(self.get_bookmarklet)
         self.route("/inject.js", methods=['GET'])(self.render_inject_js)
-        self.route("/add_token", methods=['GET'])(self.add_token)
         self.route("/submit_token", methods=['POST'])(self.submit_token)
         self.route("/get_stats", methods=['GET'])(self.get_account_stats)
 
@@ -51,13 +50,7 @@ class Pogom(Flask):
     def render_inject_js(self):
         args = get_args()
         return render_template("inject.js",
-                               domain=args.manual_captcha_solving_domain)
-
-    def add_token(self):
-        token = request.args.get('token')
-        query = Token.insert(token=token, last_updated=datetime.utcnow())
-        query.execute()
-        return self.send_static_file('1x1.gif')
+                               domain=args.manual_captcha_domain)
 
     def submit_token(self):
         response = 'error'
