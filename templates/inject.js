@@ -12,14 +12,14 @@ function initCaptchaPage(){
     document.getElementsByTagName('head')[0].appendChild(script);
 
     script = document.createElement('script');
-    script.src = 'https://www.google.com/recaptcha/api.js';
+    script.src = 'https://www.google.com/recaptcha/api.js?hl=fr';
     script.type = 'text/javascript';
     document.getElementById('recaptcha').appendChild(script);
 }
 
 function refreshCaptcha() {
     var script = document.createElement('script');
-    script.src = 'https://www.google.com/recaptcha/api.js';
+    script.src = 'https://www.google.com/recaptcha/api.js?hl=fr';
     script.type = 'text/javascript';
 
     $('form').html(captchaOnly);
@@ -61,5 +61,3 @@ captchaResponse=fnc;
 setInterval(fnc, 500);
 initCaptchaPage();
 setTimeout(refreshStats, 1000);
-
-setInterval(refreshCaptcha, 30000);
