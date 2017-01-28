@@ -32,7 +32,8 @@ from .utils import now
 log = logging.getLogger(__name__)
 
 
-def captcha_overseer_thread(args, account_queue, captcha_queue, key_scheduler):
+def captcha_overseer_thread(args, account_queue, captcha_queue, key_scheduler,
+                            wh_queue):
     solverId = 0
     while True:
         # Run once every 15 seconds.
@@ -53,7 +54,7 @@ def captcha_overseer_thread(args, account_queue, captcha_queue, key_scheduler):
                 t = Thread(target=captcha_solver_thread,
                            name='captcha-solver-{}'.format(solverId),
                            args=(args, account_queue, captcha_queue, hash_key,
-                                 tokens[i]))
+                                 tokens[i], wh_queue))
                 t.daemon = True
                 t.start()
 
@@ -68,7 +69,8 @@ def captcha_overseer_thread(args, account_queue, captcha_queue, key_scheduler):
         time.sleep(sleep_timer)
 
 
-def captcha_solver_thread(args, account_queue, captcha_queue, hash_key, token):
+def captcha_solver_thread(args, account_queue, captcha_queue, hash_key, token,
+                          wh_queue):
     status, account, location, captcha_url = (captcha_queue.get())
 
     status['message'] = 'Waking up account {} to verify captcha token.'.format(
@@ -104,18 +106,30 @@ def captcha_solver_thread(args, account_queue, captcha_queue, hash_key, token):
     response = api.verify_challenge(token=token)
 
     captcha_queue.task_done()
+
+    wh_message = {'status_name': args.status_name,
+                  'status': 'error',
+                  'account': status['username'],
+                  'captcha': status['captcha'],
+                  'time': 0}
+
     if 'success' in response['responses']['VERIFY_CHALLENGE']:
         status['message'] = (
             "Account {} successfully uncaptcha'd, returning to " +
             'active duty.').format(account['username'])
         log.info(status['message'])
         account_queue.put(account)
+        wh_message['status'] = 'success'
     else:
         status['message'] = (
             'Account {} failed verifyChallenge, putting back ' +
             'in captcha queue.').format(account['username'])
         log.warning(status['message'])
         captcha_queue.put((status, account, location, captcha_url))
+        wh_message['status'] = 'failure'
+
+    if args.webhooks:
+        wh_queue.put(('captcha', wh_message))
 
 
 # Return captcha_url if captcha is encountered

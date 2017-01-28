@@ -378,7 +378,8 @@ def search_overseer_thread(args, new_location_queue, pause_bit, heartb,
     if args.captcha_solving:
         log.info('Starting captcha overseer thread...')
         t = Thread(target=captcha_overseer_thread, name='captcha-overseer',
-                   args=(args, account_queue, captcha_queue, key_scheduler))
+                   args=(args, account_queue, captcha_queue, key_scheduler,
+                         wh_queue))
         t.daemon = True
         t.start()
 
