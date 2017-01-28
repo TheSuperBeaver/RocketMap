@@ -72,6 +72,7 @@ def captcha_overseer_thread(args, account_queue, captcha_queue, key_scheduler,
 def captcha_solver_thread(args, account_queue, captcha_queue, hash_key, token,
                           wh_queue):
     status, account, location, captcha_url = (captcha_queue.get())
+    time_start = now()
 
     status['message'] = 'Waking up account {} to verify captcha token.'.format(
                          account['username'])
@@ -106,12 +107,12 @@ def captcha_solver_thread(args, account_queue, captcha_queue, hash_key, token,
     response = api.verify_challenge(token=token)
 
     captcha_queue.task_done()
-
+    time_elapsed = now() - time_start
     wh_message = {'status_name': args.status_name,
                   'status': 'error',
                   'account': status['username'],
                   'captcha': status['captcha'],
-                  'time': 0}
+                  'time': time_elapsed}
 
     if 'success' in response['responses']['VERIFY_CHALLENGE']:
         status['message'] = (
@@ -166,9 +167,9 @@ def automatic_captcha_solve(args, status, api, captcha_url, account,
                       'time': 0}
         wh_queue.put(('captcha', wh_message))
 
-    time_before = now()
+    time_start = now()
     captcha_token = token_request(args, status, captcha_url)
-    time_elapsed = now() - time_before
+    time_elapsed = now() - time_start
 
     if 'ERROR' in captcha_token:
         log.warning('Unable to resolve captcha, please check your ' +
@@ -190,7 +191,7 @@ def automatic_captcha_solve(args, status, api, captcha_url, account,
         log.info(status['message'])
 
         response = api.verify_challenge(token=captcha_token)
-        time_elapsed = now() - time_before
+        time_elapsed = now() - time_start
         if 'success' in response['responses']['VERIFY_CHALLENGE']:
             status['message'] = "Account {} successfully uncaptcha'd.".format(
                 account['username'])
