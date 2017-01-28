@@ -37,11 +37,12 @@ from pgoapi import utilities as util
 
 from .models import parse_map, GymDetails, parse_gyms, MainWorker, WorkerStatus
 from .fakePogoApi import FakePogoApi
-from .utils import now
+from .utils import now, generate_device_info
 from .transform import get_new_coords, jitter_location
 from .account import check_login, get_tutorial_state, complete_tutorial
 from .captcha import captcha_overseer_thread, check_captcha, \
     automatic_captcha_solve
+
 from .proxy import get_new_proxy
 
 import schedulers
@@ -718,7 +719,8 @@ def search_worker_thread(args, account_queue, captcha_queue, account_failures,
             if args.mock != '':
                 api = FakePogoApi(args.mock)
             else:
-                api = PGoApi()
+                device_info = generate_device_info()
+                api = PGoApi(device_info=device_info)
 
             # New account - new proxy.
             if args.proxy:

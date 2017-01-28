@@ -93,8 +93,10 @@ def captcha_solver_thread(args, account_queue, captcha_queue, hash_key, token):
             log.debug('Using proxy %s', proxy_url)
             api.set_proxy({'http': proxy_url, 'https': proxy_url})
 
-    # Jitter location up to 100 meters
-    location = jitter_location(location, 100)
+    if not args.no_jitter:
+        # Jitter location before uncaptcha attempt
+        location = jitter_location(location)
+
     api.set_position(*location)
     status['message'] = 'Logging in...'
     check_login(args, account, api, location, proxy_url)
