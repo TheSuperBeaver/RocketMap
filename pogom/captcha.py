@@ -32,7 +32,8 @@ from .utils import now
 log = logging.getLogger(__name__)
 
 
-def captcha_overseer_thread(args, account_queue, captcha_queue, key_scheduler):
+def captcha_overseer_thread(args, account_queue, captcha_queue, key_scheduler,
+                            wh_queue):
     solverId = 0
     while True:
         # Run once every 15 seconds.
@@ -43,8 +44,8 @@ def captcha_overseer_thread(args, account_queue, captcha_queue, key_scheduler):
             tokens = Token.get_valid(tokens_needed)
             tokens_available = len(tokens)
             solvers = min(tokens_needed, tokens_available)
-            log.info('Captcha overseer running. Captchas: %d - Tokens: %d',
-                     tokens_needed, tokens_available)
+            log.debug('Captcha overseer running. Captchas: %d - Tokens: %d',
+                      tokens_needed, tokens_available)
             for i in range(0, solvers):
                 hash_key = None
                 if args.hash_key:
@@ -53,7 +54,7 @@ def captcha_overseer_thread(args, account_queue, captcha_queue, key_scheduler):
                 t = Thread(target=captcha_solver_thread,
                            name='captcha-solver-{}'.format(solverId),
                            args=(args, account_queue, captcha_queue, hash_key,
-                                 tokens[i]))
+                                 tokens[i], wh_queue))
                 t.daemon = True
                 t.start()
 
@@ -65,12 +66,13 @@ def captcha_overseer_thread(args, account_queue, captcha_queue, key_scheduler):
 
             # Adjust captcha-overseer sleep timer
             sleep_timer -= 1 * solvers
-        log.info('Waiting %d seconds before next token query.', sleep_timer)
         time.sleep(sleep_timer)
 
 
-def captcha_solver_thread(args, account_queue, captcha_queue, hash_key, token):
+def captcha_solver_thread(args, account_queue, captcha_queue, hash_key, token,
+                          wh_queue):
     status, account, location, captcha_url = (captcha_queue.get())
+    time_start = now()
 
     status['message'] = 'Waking up account {} to verify captcha token.'.format(
                          account['username'])
@@ -94,8 +96,10 @@ def captcha_solver_thread(args, account_queue, captcha_queue, hash_key, token):
             log.debug('Using proxy %s', proxy_url)
             api.set_proxy({'http': proxy_url, 'https': proxy_url})
 
-    # Jitter location up to 100 meters
-    location = jitter_location(location, 100)
+    if not args.no_jitter:
+        # Jitter location before uncaptcha attempt
+        location = jitter_location(location)
+
     api.set_position(*location)
     status['message'] = 'Logging in...'
     check_login(args, account, api, location, proxy_url)
@@ -103,18 +107,30 @@ def captcha_solver_thread(args, account_queue, captcha_queue, hash_key, token):
     response = api.verify_challenge(token=token)
 
     captcha_queue.task_done()
+    time_elapsed = now() - time_start
+    wh_message = {'status_name': args.status_name,
+                  'status': 'error',
+                  'account': status['username'],
+                  'captcha': status['captcha'],
+                  'time': time_elapsed}
+
     if 'success' in response['responses']['VERIFY_CHALLENGE']:
         status['message'] = (
             "Account {} successfully uncaptcha'd, returning to " +
             'active duty.').format(account['username'])
         log.info(status['message'])
         account_queue.put(account)
+        wh_message['status'] = 'success'
     else:
         status['message'] = (
             'Account {} failed verifyChallenge, putting back ' +
             'in captcha queue.').format(account['username'])
         log.warning(status['message'])
         captcha_queue.put((status, account, location, captcha_url))
+        wh_message['status'] = 'failure'
+
+    if args.webhooks:
+        wh_queue.put(('captcha', wh_message))
 
 
 # Return captcha_url if captcha is encountered
@@ -151,9 +167,9 @@ def automatic_captcha_solve(args, status, api, captcha_url, account,
                       'time': 0}
         wh_queue.put(('captcha', wh_message))
 
-    time_before = now()
+    time_start = now()
     captcha_token = token_request(args, status, captcha_url)
-    time_elapsed = now() - time_before
+    time_elapsed = now() - time_start
 
     if 'ERROR' in captcha_token:
         log.warning('Unable to resolve captcha, please check your ' +
@@ -170,12 +186,12 @@ def automatic_captcha_solve(args, status, api, captcha_url, account,
         return False
     else:
         status['message'] = (
-            'Retrieved captcha token, attempting to verify challenge' +
-            ' for {}.').format(account['username'])
+            'Retrieved captcha token, attempting to verify challenge ' +
+            'for {}.').format(account['username'])
         log.info(status['message'])
 
         response = api.verify_challenge(token=captcha_token)
-        time_elapsed = now() - time_before
+        time_elapsed = now() - time_start
         if 'success' in response['responses']['VERIFY_CHALLENGE']:
             status['message'] = "Account {} successfully uncaptcha'd.".format(
                 account['username'])

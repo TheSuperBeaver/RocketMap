@@ -37,11 +37,12 @@ from pgoapi import utilities as util
 
 from .models import parse_map, GymDetails, parse_gyms, MainWorker, WorkerStatus
 from .fakePogoApi import FakePogoApi
-from .utils import now
+from .utils import now, generate_device_info
 from .transform import get_new_coords, jitter_location
 from .account import check_login, get_tutorial_state, complete_tutorial
 from .captcha import captcha_overseer_thread, check_captcha, \
     automatic_captcha_solve
+
 from .proxy import get_new_proxy
 
 import schedulers
@@ -96,9 +97,9 @@ def status_printer(threadStatus, search_items_queue_array, db_updates_queue,
                    logmode):
 
     if (logmode == 'logs'):
-        display_type = ["logs"]
+        display_type = ['logs']
     else:
-        display_type = ["workers"]
+        display_type = ['workers']
 
     current_page = [1]
     # Grab current log / level.
@@ -244,7 +245,7 @@ def status_printer(threadStatus, search_items_queue_array, db_updates_queue,
         # Clear the screen.
         os.system('cls' if os.name == 'nt' else 'clear')
         # Print status.
-        print "\n".join(status_text)
+        print '\n'.join(status_text)
 
 
 # The account recycler monitors failed accounts and places them back in the
@@ -377,7 +378,8 @@ def search_overseer_thread(args, new_location_queue, pause_bit, heartb,
     if args.captcha_solving:
         log.info('Starting captcha overseer thread...')
         t = Thread(target=captcha_overseer_thread, name='captcha-overseer',
-                   args=(args, account_queue, captcha_queue, key_scheduler))
+                   args=(args, account_queue, captcha_queue, key_scheduler,
+                         wh_queue))
         t.daemon = True
         t.start()
 
@@ -446,7 +448,7 @@ def search_overseer_thread(args, new_location_queue, pause_bit, heartb,
         if (args.on_demand_timeout > 0 and
                 (now() - args.on_demand_timeout) > heartb[0]):
             pause_bit.set()
-            log.info("Searching paused due to inactivity...")
+            log.info('Searching paused due to inactivity...')
 
         # Wait here while scanning is paused.
         while pause_bit.is_set():
@@ -531,7 +533,7 @@ def wh_status_update(args, status, wh_queue, scheduler):
             tth_found = tth_found * 100.0 / float(active_sp)
 
         if (tth_found - status['scheduler_status']['tth_found']) > 0.01:
-            log.debug("Scheduler update is due, sending webhook message.")
+            log.debug('Scheduler update is due, sending webhook message.')
             wh_queue.put(('scheduler', {'name': scheduler_name,
                                         'instance': args.status_name,
                                         'tth_found': tth_found,
@@ -549,18 +551,18 @@ def get_stats_message(threadStatus):
     if elapsed == 0:
         elapsed = 1
 
-    sph = overseer['success_total'] * 3600 / elapsed
-    fph = overseer['fail_total'] * 3600 / elapsed
-    eph = overseer['empty_total'] * 3600 / elapsed
-    skph = overseer['skip_total'] * 3600 / elapsed
-    cph = overseer['captcha_total'] * 3600 / elapsed
+    sph = overseer['success_total'] * 3600.0 / elapsed
+    fph = overseer['fail_total'] * 3600.0 / elapsed
+    eph = overseer['empty_total'] * 3600.0 / elapsed
+    skph = overseer['skip_total'] * 3600.0 / elapsed
+    cph = overseer['captcha_total'] * 3600.0 / elapsed
     ccost = cph * 0.00299
     cmonth = ccost * 730
 
-    message = ('Total active: {}  |  Success: {} ({}/hr) | ' +
-               'Fails: {} ({}/hr) | Empties: {} ({}/hr) | ' +
-               'Skips {} ({}/hr) | ' +
-               'Captchas: {} ({}/hr)|${:2}/hr|${:2}/mo').format(
+    message = ('Total active: {}  |  Success: {} ({:.1f}/hr) | ' +
+               'Fails: {} ({:.1f}/hr) | Empties: {} ({:.1f}/hr) | ' +
+               'Skips {} ({:.1f}/hr) | ' +
+               'Captchas: {} ({:.1f}/hr)|${:.5f}/hr|${:.3f}/mo').format(
                    overseer['active_accounts'],
                    overseer['success_total'], sph,
                    overseer['fail_total'], fph,
@@ -718,7 +720,8 @@ def search_worker_thread(args, account_queue, captcha_queue, account_failures,
             if args.mock != '':
                 api = FakePogoApi(args.mock)
             else:
-                api = PGoApi()
+                device_info = generate_device_info()
+                api = PGoApi(device_info=device_info)
 
             # New account - new proxy.
             if args.proxy:
@@ -735,7 +738,7 @@ def search_worker_thread(args, account_queue, captcha_queue, account_failures,
                         status['proxy_display'] = status['proxy_url']
 
             if status['proxy_url']:
-                log.debug("Using proxy %s", status['proxy_url'])
+                log.debug('Using proxy %s', status['proxy_url'])
                 api.set_proxy({
                     'http': status['proxy_url'],
                     'https': status['proxy_url']})
@@ -924,14 +927,14 @@ def search_worker_thread(args, account_queue, captcha_queue, account_failures,
                                                             args.no_jitter)
                         else:
                             status['message'] = ('Account {} has encountered' +
-                                                 'a captcha.').format(
+                                                 ' a captcha.').format(
                                                     status['username'])
                             if args.captcha_solving:
-                                status['message'] += " Waiting for token."
+                                status['message'] += ' Waiting for token.'
                                 captcha_queue.put((status, account,
                                                    step_location, captcha_url))
                             else:
-                                status['message'] += " Putting account away."
+                                status['message'] += ' Putting account away.'
                                 account_failures.append({
                                     'account': account,
                                     'last_fail_time': now(),
@@ -947,7 +950,7 @@ def search_worker_thread(args, account_queue, captcha_queue, account_failures,
                                 whq.put(('captcha', wh_message))
 
                             account_queue.task_done()
-                            time.sleep(5)
+                            time.sleep(3)
                             break
 
                     parsed = parse_map(args, response_dict, step_location,
