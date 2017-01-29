@@ -1050,9 +1050,12 @@ class MainWorker(BaseModel):
                                  fn.SUM(MainWorker.accounts_captcha),
                                  fn.SUM(MainWorker.accounts_failed))
                          .scalar(as_tuple=True))
-        dict = {'working': int(account_stats[0]),
-                'captcha': int(account_stats[1]),
-                'failed': int(account_stats[2])}
+        dict = {'working': 0, 'captcha': 0, 'failed': 0}
+        if account_stats[0] is not None:
+            dict = {'working': int(account_stats[0]),
+                    'captcha': int(account_stats[1]),
+                    'failed': int(account_stats[2])}
+
         return dict
 
 
