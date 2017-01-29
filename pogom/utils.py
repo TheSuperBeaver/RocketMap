@@ -139,6 +139,14 @@ def get_args():
                                 action='append', default=[],
                                 help=('List of Pokemon to NOT encounter for ' +
                                       'more stats.'))
+    encounter_list.add_argument('-ewhtf', '--encounter-whitelist-file',
+                                default='', help='File containing a list of '
+                                                 'Pokemon to encounter for'
+                                                 ' more stats.')
+    encounter_list.add_argument('-eblkf', '--encounter-blacklist-file',
+                                default='', help='File containing a list of '
+                                                 'Pokemon to NOT encounter for'
+                                                 ' more stats.')
     parser.add_argument('-ld', '--login-delay',
                         help='Time delay between each login attempt.',
                         type=float, default=6)
@@ -309,13 +317,16 @@ def get_args():
                         help=('Number of webhook threads; increase if the ' +
                               'webhook queue falls behind.'),
                         type=int, default=1)
+    parser.add_argument('-whc', '--wh-concurrency',
+                        help=('Async requests pool size.'), type=int,
+                        default=25)
     parser.add_argument('-whr', '--wh-retries',
                         help=('Number of times to retry sending webhook ' +
                               'data on failure.'),
-                        type=int, default=5)
+                        type=int, default=3)
     parser.add_argument('-wht', '--wh-timeout',
                         help='Timeout (in seconds) for webhook requests.',
-                        type=int, default=2)
+                        type=float, default=1.0)
     parser.add_argument('-whbf', '--wh-backoff-factor',
                         help=('Factor (in seconds) by which the delay ' +
                               'until next retry will increase.'),
@@ -582,8 +593,19 @@ def get_args():
                   "--accountcsv to add accounts.")
             sys.exit(1)
 
-        args.encounter_blacklist = [int(i) for i in args.encounter_blacklist]
-        args.encounter_whitelist = [int(i) for i in args.encounter_whitelist]
+        if args.encounter_whitelist_file:
+            with open(args.encounter_whitelist_file) as f:
+                args.encounter_whitelist = [get_pokemon_id(name) for name in
+                                            f.read().splitlines()]
+        elif args.encounter_blacklist_file:
+            with open(args.encounter_blacklist_file) as f:
+                args.encounter_blacklist = [get_pokemon_id(name) for name in
+                                            f.read().splitlines()]
+        else:
+            args.encounter_blacklist = [int(i) for i in
+                                        args.encounter_blacklist]
+            args.encounter_whitelist = [int(i) for i in
+                                        args.encounter_whitelist]
 
         # Decide which scanning mode to use.
         if args.spawnpoint_scanning:
@@ -684,6 +706,19 @@ def get_pokemon_data(pokemon_id):
         with open(file_path, 'r') as f:
             get_pokemon_data.pokemon = json.loads(f.read())
     return get_pokemon_data.pokemon[str(pokemon_id)]
+
+
+def get_pokemon_id(pokemon_name):
+    if not hasattr(get_pokemon_id, 'ids'):
+        if not hasattr(get_pokemon_data, 'pokemon'):
+            # initialize from file
+            get_pokemon_data(1)
+
+        get_pokemon_id.ids = {}
+        for pokemon_id, data in get_pokemon_data.pokemon.iteritems():
+            get_pokemon_id.ids[data['name']] = int(pokemon_id)
+
+    return get_pokemon_id.ids.get(pokemon_name, -1)
 
 
 def get_pokemon_name(pokemon_id):
