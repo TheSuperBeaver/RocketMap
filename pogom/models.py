@@ -36,7 +36,7 @@ args = get_args()
 flaskDb = FlaskDB()
 cache = TTLCache(maxsize=100, ttl=60 * 5)
 
-db_schema_version = 12
+db_schema_version = 13
 
 
 class MyRetryDB(RetryOperationalError, PooledMySQLDatabase):
@@ -1050,9 +1050,12 @@ class MainWorker(BaseModel):
                                  fn.SUM(MainWorker.accounts_captcha),
                                  fn.SUM(MainWorker.accounts_failed))
                          .scalar(as_tuple=True))
-        dict = {'working': int(account_stats[0]),
-                'captcha': int(account_stats[1]),
-                'failed': int(account_stats[2])}
+        dict = {'working': 0, 'captcha': 0, 'failed': 0}
+        if account_stats[0] is not None:
+            dict = {'working': int(account_stats[0]),
+                    'captcha': int(account_stats[1]),
+                    'failed': int(account_stats[2])}
+
         return dict
 
 
@@ -2410,7 +2413,7 @@ def database_migrate(db, old_ver):
 
         db.drop_tables([ScanSpawnPoint])
 
-    if old_ver < 12:
+    if old_ver < 13:
 
         db.drop_tables([WorkerStatus])
         db.drop_tables([MainWorker])
